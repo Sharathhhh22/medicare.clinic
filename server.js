@@ -3,7 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = 3000;
-const PUBLIC_DIR = 'C:/Users/shara/.gemini/antigravity/scratch/medicare-clone/public';
+const ROOT_DIR = 'C:/Users/shara/.gemini/antigravity/scratch/medicare-clone';
+const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -23,24 +24,25 @@ const server = http.createServer((req, res) => {
   if (reqPath === '/' || reqPath === '') reqPath = '/index.html';
 
   const safePath = path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, '');
-  const filePath = path.join(PUBLIC_DIR, safePath);
+  
+  // Try ROOT first, then PUBLIC
+  let filePath = path.join(ROOT_DIR, safePath);
+  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    filePath = path.join(PUBLIC_DIR, safePath);
+  }
+  
+  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    filePath = path.join(ROOT_DIR, 'index.html');
+  }
 
-  fs.stat(filePath, (err, stats) => {
-    if (err || !stats.isFile()) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('404 Not Found');
-      return;
-    }
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-
-    res.writeHead(200, {
-      'Content-Type': contentType,
-      'Access-Control-Allow-Origin': '*'
-    });
-    fs.createReadStream(filePath).pipe(res);
+  res.writeHead(200, {
+    'Content-Type': contentType,
+    'Access-Control-Allow-Origin': '*'
   });
+  fs.createReadStream(filePath).pipe(res);
 });
 
 server.listen(PORT, '0.0.0.0', () => {
